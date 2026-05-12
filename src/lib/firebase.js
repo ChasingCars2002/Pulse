@@ -1,14 +1,9 @@
 // Firebase initialization with graceful fallback.
 //
-// Pulse uses Firestore for realtime updates on the High-Five feed and other
-// collaborative surfaces. To enable Firebase, copy `.env.example` to `.env`
-// and fill in the VITE_FIREBASE_* values. Without those values the app runs
-// against a local in-memory + localStorage store, which is great for demos
-// and offline development.
-
-import { initializeApp } from "firebase/app";
-import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+// Pulse uses Firestore for realtime updates when configured via env vars,
+// but the SDK is loaded *lazily* on first use so the initial bundle and
+// first paint never depend on it. Without env vars the app falls back to
+// a localStorage-backed store and Firebase is never imported.
 
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -19,14 +14,26 @@ const config = {
 
 export const firebaseEnabled = Boolean(config.apiKey && config.projectId);
 
-let app = null;
-let auth = null;
-let db = null;
+let initPromise = null;
 
-if (firebaseEnabled) {
-  app = initializeApp(config);
-  auth = getAuth(app);
-  db = getFirestore(app);
+export function getFirebase() {
+  if (!firebaseEnabled) return Promise.resolve(null);
+  if (initPromise) return initPromise;
+  initPromise = (async () => {
+    const [{ initializeApp }, authMod, firestoreMod] = await Promise.all([
+      import("firebase/app"),
+      import("firebase/auth"),
+      import("firebase/firestore"),
+    ]);
+    const app = initializeApp(config);
+    const auth = authMod.getAuth(app);
+    const db = firestoreMod.getFirestore(app);
+    try {
+      await authMod.signInAnonymously(auth);
+    } catch (e) {
+      console.warn("[pulse] anonymous sign-in failed:", e?.message || e);
+    }
+    return { app, auth, db, authMod, firestoreMod };
+  })();
+  return initPromise;
 }
-
-export { app, auth, db, signInAnonymously, onAuthStateChanged };

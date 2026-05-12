@@ -5,13 +5,7 @@
 // Without Firebase, it uses an in-memory + localStorage mirror so the
 // app is fully usable offline, which keeps onboarding "plug and play".
 
-import {
-  firebaseEnabled,
-  db,
-  auth,
-  signInAnonymously,
-  onAuthStateChanged,
-} from "./firebase.js";
+import { firebaseEnabled, getFirebase } from "./firebase.js";
 import {
   seedUsers,
   seedHighFives,
@@ -82,20 +76,9 @@ function notify(collection) {
 let localState = loadLocal();
 
 // ----- Firestore wiring (used only when firebaseEnabled) -----
-let fbReady = false;
 async function ensureFirebase() {
-  if (!firebaseEnabled || fbReady) return;
-  // sign in anonymously for demo; replace with real auth in prod
-  await signInAnonymously(auth);
-  await new Promise((resolve) => {
-    const off = onAuthStateChanged(auth, (u) => {
-      if (u) {
-        off();
-        resolve();
-      }
-    });
-  });
-  fbReady = true;
+  if (!firebaseEnabled) return null;
+  return getFirebase();
 }
 
 // ----- Public API -----
@@ -129,27 +112,24 @@ function generateId(prefix) {
 }
 
 export async function add(collection, doc) {
-  await ensureFirebase();
   const withId = { id: doc.id || generateId(collection.slice(0, 2)), ...doc };
   localState[collection] = [withId, ...(localState[collection] || [])];
   saveLocal(localState);
   notify(collection);
-  // Firestore mirror (best-effort, doesn't block UI)
+  // Firestore mirror is best-effort and never blocks the optimistic UI update.
   if (firebaseEnabled) {
-    try {
-      const { doc: docRef, setDoc, collection: col } = await import(
-        "firebase/firestore"
-      );
-      await setDoc(docRef(col(db, collection), withId.id), withId);
-    } catch (e) {
-      console.warn("[pulse] firestore add failed, kept local copy", e);
-    }
+    ensureFirebase()
+      .then(async (fb) => {
+        if (!fb) return;
+        const { doc: docRef, setDoc, collection: col } = fb.firestoreMod;
+        await setDoc(docRef(col(fb.db, collection), withId.id), withId);
+      })
+      .catch((e) => console.warn("[pulse] firestore add failed", e));
   }
   return withId;
 }
 
 export async function update(collection, id, patch) {
-  await ensureFirebase();
   const arr = localState[collection] || [];
   const idx = arr.findIndex((x) => x.id === id);
   if (idx === -1) return null;
@@ -157,33 +137,30 @@ export async function update(collection, id, patch) {
   saveLocal(localState);
   notify(collection);
   if (firebaseEnabled) {
-    try {
-      const { doc: docRef, updateDoc, collection: col } = await import(
-        "firebase/firestore"
-      );
-      await updateDoc(docRef(col(db, collection), id), patch);
-    } catch (e) {
-      console.warn("[pulse] firestore update failed, kept local copy", e);
-    }
+    ensureFirebase()
+      .then(async (fb) => {
+        if (!fb) return;
+        const { doc: docRef, updateDoc, collection: col } = fb.firestoreMod;
+        await updateDoc(docRef(col(fb.db, collection), id), patch);
+      })
+      .catch((e) => console.warn("[pulse] firestore update failed", e));
   }
   return arr[idx];
 }
 
 export async function remove(collection, id) {
-  await ensureFirebase();
   localState[collection] = (localState[collection] || []).filter(
     (x) => x.id !== id
   );
   saveLocal(localState);
   notify(collection);
   if (firebaseEnabled) {
-    try {
-      const { doc: docRef, deleteDoc, collection: col } = await import(
-        "firebase/firestore"
-      );
-      await deleteDoc(docRef(col(db, collection), id));
-    } catch (e) {
-      console.warn("[pulse] firestore delete failed, kept local copy", e);
-    }
+    ensureFirebase()
+      .then(async (fb) => {
+        if (!fb) return;
+        const { doc: docRef, deleteDoc, collection: col } = fb.firestoreMod;
+        await deleteDoc(docRef(col(fb.db, collection), id));
+      })
+      .catch((e) => console.warn("[pulse] firestore delete failed", e));
   }
 }

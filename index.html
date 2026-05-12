@@ -11,9 +11,38 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
+    <style>
+      /* Boot styles in case the JS bundle hasn't taken over yet. */
+      html, body, #root { height: 100%; margin: 0; }
+      body {
+        background: #f5f7ff;
+        color: #0f1222;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .pulse-boot {
+        display: flex; align-items: center; justify-content: center;
+        min-height: 100vh; flex-direction: column; gap: 12px;
+        color: #5b6177;
+      }
+      .pulse-boot .dot {
+        width: 36px; height: 36px; border-radius: 10px;
+        background: linear-gradient(135deg, #5b6cff, #3a3fbf);
+        animation: pulse-pop 1.2s ease-in-out infinite;
+      }
+      @keyframes pulse-pop {
+        0%, 100% { transform: scale(0.9); opacity: 0.85; }
+        50% { transform: scale(1.05); opacity: 1; }
+      }
+    </style>
   </head>
-  <body class="bg-pulse-50 text-ink-900 antialiased">
-    <div id="root"></div>
+  <body>
+    <div id="root">
+      <div class="pulse-boot">
+        <div class="dot"></div>
+        <div>Loading Pulse…</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
