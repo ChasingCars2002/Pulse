@@ -13,9 +13,12 @@ import {
   seedOKRs,
   seedOneOnOnes,
   seedCheckIns,
+  seedFeedbackRequests,
 } from "./seed.js";
 
-const STORAGE_KEY = "pulse.local.v1";
+// Bump the version suffix when changing seed shape so existing users
+// pick up the new demo state automatically.
+const STORAGE_KEY = "pulse.local.v2";
 const COLLECTIONS = [
   "users",
   "highFives",
@@ -36,12 +39,14 @@ function freshDB() {
     oneOnOnes: [...seedOneOnOnes],
     checkIns: [...seedCheckIns],
     openMic: [],
-    feedbackRequests: [],
+    feedbackRequests: [...seedFeedbackRequests],
   };
 }
 
 function loadLocal() {
   try {
+    // Clear pre-v2 keys so old demo data doesn't linger.
+    localStorage.removeItem("pulse.local.v1");
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
       const seeded = freshDB();
@@ -107,12 +112,24 @@ export function subscribe(collection, fn) {
   return () => subscribers.get(collection).delete(fn);
 }
 
-function generateId(prefix) {
+const ID_PREFIXES = {
+  users: "u",
+  highFives: "hf",
+  priorities: "p",
+  okrs: "okr",
+  oneOnOnes: "oo",
+  checkIns: "ci",
+  openMic: "om",
+  feedbackRequests: "fr",
+};
+
+function generateId(collection) {
+  const prefix = ID_PREFIXES[collection] || collection.slice(0, 2);
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
 export async function add(collection, doc) {
-  const withId = { id: doc.id || generateId(collection.slice(0, 2)), ...doc };
+  const withId = { id: doc.id || generateId(collection), ...doc };
   localState[collection] = [withId, ...(localState[collection] || [])];
   saveLocal(localState);
   notify(collection);

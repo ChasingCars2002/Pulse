@@ -25,6 +25,9 @@ export default function CheckIn() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(Boolean(existing));
 
+  const canSubmit =
+    [win, challenge, growth].some((s) => s.trim().length > 0);
+
   // Local-draft persistence so users don't lose answers on refresh.
   useEffect(() => {
     if (submitted) return;
@@ -53,6 +56,7 @@ export default function CheckIn() {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (!canSubmit) return;
     setSubmitting(true);
     const payload = {
       userId: currentUser.id,
@@ -168,7 +172,12 @@ export default function CheckIn() {
 
       <div className="flex items-center justify-between">
         <p className="muted">Draft saved automatically.</p>
-        <button type="submit" disabled={submitting} className="btn-primary">
+        <button
+          type="submit"
+          disabled={submitting || !canSubmit}
+          className="btn-primary"
+          title={canSubmit ? "" : "Fill in at least one prompt to submit."}
+        >
           {submitting ? "Submitting…" : "Submit check-in"}
         </button>
       </div>

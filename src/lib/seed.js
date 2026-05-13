@@ -1,5 +1,9 @@
 // Demo seed data so Pulse feels alive on first run.
 
+import { currentWeekKey } from "./questionEngine.js";
+
+const week = currentWeekKey();
+
 export const seedUsers = [
   { id: "u_you", name: "You (Demo)", role: "Product Engineer", manager: "u_dana", avatar: "🦊" },
   { id: "u_dana", name: "Dana Wu", role: "Engineering Manager", manager: null, avatar: "🐼" },
@@ -52,7 +56,7 @@ export const seedPriorities = [
     okrId: "okr_1",
     source: "github",
     sourceRef: "pulse#142",
-    week: "current",
+    week,
   },
   {
     id: "p_2",
@@ -61,7 +65,7 @@ export const seedPriorities = [
     status: "todo",
     okrId: "okr_2",
     source: null,
-    week: "current",
+    week,
   },
   {
     id: "p_3",
@@ -71,7 +75,7 @@ export const seedPriorities = [
     okrId: "okr_3",
     source: "jira",
     sourceRef: "HR-88",
-    week: "current",
+    week,
   },
 ];
 
@@ -122,7 +126,7 @@ export const seedCheckIns = [
   {
     id: "ci_1",
     userId: "u_marco",
-    week: "current",
+    week,
     morale: 4,
     answers: {
       win: "Shipped the new empty-state illustrations. They look great on mobile.",
@@ -135,7 +139,7 @@ export const seedCheckIns = [
   {
     id: "ci_2",
     userId: "u_priya",
-    week: "current",
+    week,
     morale: 3,
     answers: {
       win: "Closed two churn-risk accounts after deep-dive interviews.",
@@ -144,6 +148,32 @@ export const seedCheckIns = [
     },
     openMic: "Should we revisit the prioritization framework? It feels stale.",
     createdAt: daysAgo(2),
+  },
+  {
+    id: "ci_3",
+    userId: "u_jess",
+    week,
+    morale: 4,
+    answers: {
+      win: "Migrated the events pipeline to the new schema — 30% smaller payloads.",
+      challenge: "Still chasing a flaky test on the realtime feed. Energy-draining.",
+      growth: "Learned a lot pairing with Marco on the dashboards.",
+    },
+    openMic: "",
+    createdAt: daysAgo(3),
+  },
+];
+
+export const seedFeedbackRequests = [
+  {
+    id: "fr_1",
+    fromId: "u_dana",
+    toId: "u_you",
+    question:
+      "What's one thing I'm doing well that I should keep doing — and one thing I should change?",
+    response: "",
+    responded: false,
+    createdAt: daysAgo(1),
   },
 ];
 

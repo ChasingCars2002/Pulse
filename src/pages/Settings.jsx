@@ -30,7 +30,18 @@ export default function Settings() {
           <span className="chip capitalize">{storeMode}</span>
         </div>
         {storeMode !== "firestore" && (
-          <button onClick={resetLocal} className="btn-secondary mt-4">
+          <button
+            onClick={() => {
+              if (
+                window.confirm(
+                  "Reset all local Pulse data (check-ins, high-fives, 1-on-1s, priorities) back to the demo seed?"
+                )
+              ) {
+                resetLocal();
+              }
+            }}
+            className="btn-secondary mt-4"
+          >
             <RefreshCw size={14} /> Reset demo data
           </button>
         )}

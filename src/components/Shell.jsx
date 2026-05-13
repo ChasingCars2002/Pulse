@@ -29,8 +29,11 @@ export default function Shell() {
   const { currentUser, storeMode, slackFeed } = useApp();
   const location = useLocation();
   const currentLabel =
-    NAV.find((n) => (n.end ? location.pathname === n.to : location.pathname.startsWith(n.to)))?.label ||
-    "Pulse";
+    location.pathname === "/settings"
+      ? "Settings"
+      : NAV.find((n) =>
+          n.end ? location.pathname === n.to : location.pathname.startsWith(n.to)
+        )?.label || "Pulse";
 
   return (
     <div className="h-full grid grid-cols-[260px_1fr] bg-pulse-50">

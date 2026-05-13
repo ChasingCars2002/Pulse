@@ -70,7 +70,7 @@ export default function OneOnOnes() {
         </ul>
       </aside>
 
-      {active ? <OneOnOnePane meeting={active} /> : (
+      {active ? <OneOnOnePane key={active.id} meeting={active} /> : (
         <div className="card p-8 text-center">
           <Users className="mx-auto text-pulse-600" />
           <p className="mt-2 muted">Create a 1-on-1 to start a shared agenda.</p>
