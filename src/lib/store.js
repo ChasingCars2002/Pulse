@@ -6,6 +6,7 @@
 // app is fully usable offline, which keeps onboarding "plug and play".
 
 import { firebaseEnabled, getFirebase } from "./firebase.js";
+import { currentWeekKey } from "./questionEngine.js";
 import {
   seedUsers,
   seedHighFives,
@@ -55,6 +56,11 @@ function loadLocal() {
     }
     const parsed = JSON.parse(raw);
     for (const c of COLLECTIONS) if (!parsed[c]) parsed[c] = [];
+    // Migrate priorities written before week keys were real ISO weeks
+    // (an old build stored the literal string "current").
+    for (const p of parsed.priorities) {
+      if (p.week === "current") p.week = currentWeekKey();
+    }
     return parsed;
   } catch {
     return freshDB();
@@ -93,6 +99,13 @@ export const storeMode = firebaseEnabled ? "firestore" : "local";
 export function resetLocal() {
   localState = freshDB();
   saveLocal(localState);
+  try {
+    // Drop any in-progress check-in draft too, or it would "restore"
+    // into the freshly reset form.
+    localStorage.removeItem("pulse.checkin.draft");
+  } catch {
+    // ignore
+  }
   for (const c of COLLECTIONS) notify(c);
 }
 
@@ -109,7 +122,51 @@ export function subscribe(collection, fn) {
   subscribers.get(collection).add(fn);
   // initial push
   fn(localState[collection] || []);
+  attachRemote(collection);
   return () => subscribers.get(collection).delete(fn);
+}
+
+// Realtime read path. The first subscriber to a collection attaches a
+// Firestore onSnapshot listener that mirrors remote changes into local
+// state (and localStorage) and re-notifies — this is what makes the
+// High-Five feed and 1-on-1 workspaces live across browsers. If the
+// remote collection is empty on first connect (a fresh Firebase project),
+// it is seeded once from the local data so the demo starts alive.
+const remoteAttached = new Set();
+
+function attachRemote(collection) {
+  if (!firebaseEnabled || remoteAttached.has(collection)) return;
+  remoteAttached.add(collection);
+  ensureFirebase()
+    .then((fb) => {
+      if (!fb) return;
+      const { collection: col, onSnapshot, doc: docRef, setDoc } = fb.firestoreMod;
+      const ref = col(fb.db, collection);
+      let seededRemote = false;
+      onSnapshot(
+        ref,
+        (snap) => {
+          if (snap.empty) {
+            if (!seededRemote) {
+              seededRemote = true;
+              for (const d of localState[collection] || []) {
+                setDoc(docRef(ref, d.id), d).catch((e) =>
+                  console.warn("[pulse] firestore seed failed", e)
+                );
+              }
+            }
+            return;
+          }
+          const docs = snap.docs.map((d) => d.data());
+          docs.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+          localState[collection] = docs;
+          saveLocal(localState);
+          notify(collection);
+        },
+        (e) => console.warn(`[pulse] firestore subscribe failed (${collection})`, e)
+      );
+    })
+    .catch((e) => console.warn("[pulse] firebase init failed", e));
 }
 
 const ID_PREFIXES = {
@@ -129,7 +186,7 @@ function generateId(collection) {
 }
 
 export async function add(collection, doc) {
-  const withId = { id: doc.id || generateId(collection), ...doc };
+  const withId = { ...doc, id: doc.id || generateId(collection) };
   localState[collection] = [withId, ...(localState[collection] || [])];
   saveLocal(localState);
   notify(collection);
@@ -150,7 +207,11 @@ export async function update(collection, id, patch) {
   const arr = localState[collection] || [];
   const idx = arr.findIndex((x) => x.id === id);
   if (idx === -1) return null;
-  arr[idx] = { ...arr[idx], ...patch };
+  // Replace the array (not just the element) — subscribers are React
+  // setState calls, which bail out if handed the same reference.
+  const next = [...arr];
+  next[idx] = { ...arr[idx], ...patch };
+  localState[collection] = next;
   saveLocal(localState);
   notify(collection);
   if (firebaseEnabled) {
@@ -162,7 +223,7 @@ export async function update(collection, id, patch) {
       })
       .catch((e) => console.warn("[pulse] firestore update failed", e));
   }
-  return arr[idx];
+  return next[idx];
 }
 
 export async function remove(collection, id) {

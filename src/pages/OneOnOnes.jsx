@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useApp, userName } from "../context/AppContext.jsx";
 import { add, update } from "../lib/store.js";
-import { Users, Plus, CheckCircle2, Circle, Calendar } from "lucide-react";
+import { Users, Plus, CheckCircle2, Circle, Calendar, ClipboardCheck } from "lucide-react";
 
 export default function OneOnOnes() {
   const { currentUser, users, oneOnOnes } = useApp();
@@ -81,9 +81,15 @@ export default function OneOnOnes() {
 }
 
 function OneOnOnePane({ meeting }) {
-  const { currentUser, users } = useApp();
+  const { currentUser, users, checkIns } = useApp();
   const other =
     meeting.managerId === currentUser?.id ? meeting.reportId : meeting.managerId;
+
+  // Check-in prep: surface the other participant's latest weekly check-in
+  // so neither side walks in cold.
+  const otherCheckIn = [...checkIns]
+    .filter((c) => c.userId === other)
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0];
 
   const [newAgenda, setNewAgenda] = useState("");
   const [newAction, setNewAction] = useState("");
@@ -161,6 +167,36 @@ function OneOnOnePane({ meeting }) {
           </div>
         </div>
       </div>
+
+      {otherCheckIn && (
+        <div className="card p-6">
+          <h3 className="section-title mb-1 flex items-center gap-2">
+            <ClipboardCheck size={18} className="text-pulse-600" />
+            Check-in prep
+          </h3>
+          <p className="muted mb-4">
+            {userName(users, other)}'s latest check-in ({otherCheckIn.week}) ·
+            morale {otherCheckIn.morale}/5
+          </p>
+          <dl className="space-y-3">
+            {[
+              ["Win", otherCheckIn.answers?.win],
+              ["Challenge", otherCheckIn.answers?.challenge],
+              ["Growth", otherCheckIn.answers?.growth],
+              ["Open mic", otherCheckIn.openMic],
+            ]
+              .filter(([, v]) => v && v.trim())
+              .map(([k, v]) => (
+                <div key={k}>
+                  <dt className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                    {k}
+                  </dt>
+                  <dd className="text-sm text-ink-700 mt-0.5">{v}</dd>
+                </div>
+              ))}
+          </dl>
+        </div>
+      )}
 
       <div className="card p-6">
         <h3 className="section-title mb-3">Agenda</h3>

@@ -11,8 +11,16 @@ export default function Dashboard() {
     (c) => c.userId === currentUser?.id && c.week === week
   );
   const q = questionsForWeek();
-  const myPriorities = priorities.filter((p) => p.userId === currentUser?.id);
+  const myPriorities = priorities.filter(
+    (p) => p.userId === currentUser?.id && p.week === week
+  );
   const teamCheckIns = checkIns.filter((c) => c.week === week);
+  const weeklyHighFives = highFives.filter(
+    (hf) => hf.createdAt && currentWeekKey(new Date(hf.createdAt)) === week
+  );
+  const recentHighFives = [...highFives]
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+    .slice(0, 3);
 
   return (
     <div className="space-y-6">
@@ -48,7 +56,7 @@ export default function Dashboard() {
         <StatCard
           icon={Hand}
           label="High-fives this week"
-          value={highFives.length}
+          value={weeklyHighFives.length}
           to="/high-fives"
         />
         <StatCard
@@ -88,7 +96,7 @@ export default function Dashboard() {
             </Link>
           </div>
           <ul className="space-y-3">
-            {highFives.slice(0, 3).map((hf) => (
+            {recentHighFives.map((hf) => (
               <li key={hf.id} className="flex gap-3">
                 <div className="w-9 h-9 rounded-full bg-pulse-100 flex items-center justify-center text-lg shrink-0">
                   {userAvatar(users, hf.fromId)}

@@ -17,35 +17,43 @@ export default function CheckIn() {
     (c) => c.userId === currentUser?.id && c.week === week
   );
 
-  const [morale, setMorale] = useState(existing?.morale || 4);
-  const [win, setWin] = useState(existing?.answers?.win || "");
-  const [challenge, setChallenge] = useState(existing?.answers?.challenge || "");
-  const [growth, setGrowth] = useState(existing?.answers?.growth || "");
-  const [openMic, setOpenMic] = useState(existing?.openMic || "");
+  // Restore any saved draft synchronously, before the draft-save effect
+  // below can run — loading it in an effect raced with the save and could
+  // wipe the draft on refresh.
+  const [draft] = useState(() => {
+    if (existing) return null;
+    try {
+      const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
+      return d && d.week === week ? d : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [morale, setMorale] = useState(existing?.morale ?? draft?.morale ?? 4);
+  const [win, setWin] = useState(existing?.answers?.win ?? draft?.win ?? "");
+  const [challenge, setChallenge] = useState(
+    existing?.answers?.challenge ?? draft?.challenge ?? ""
+  );
+  const [growth, setGrowth] = useState(
+    existing?.answers?.growth ?? draft?.growth ?? ""
+  );
+  const [openMic, setOpenMic] = useState(existing?.openMic ?? draft?.openMic ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(Boolean(existing));
 
   const canSubmit =
     [win, challenge, growth].some((s) => s.trim().length > 0);
 
-  // Local-draft persistence so users don't lose answers on refresh.
+  // In live (Firestore) mode this week's check-in can arrive after mount —
+  // e.g. submitted from another device. Flip to the submitted screen so the
+  // user doesn't file a duplicate.
+  const existingId = existing?.id;
   useEffect(() => {
-    if (submitted) return;
-    const raw = localStorage.getItem(DRAFT_KEY);
-    if (raw && !existing) {
-      try {
-        const d = JSON.parse(raw);
-        if (d.week === week) {
-          setMorale(d.morale ?? 4);
-          setWin(d.win ?? "");
-          setChallenge(d.challenge ?? "");
-          setGrowth(d.growth ?? "");
-          setOpenMic(d.openMic ?? "");
-        }
-      } catch {}
-    }
-  }, [existing, submitted, week]);
+    if (existingId) setSubmitted(true);
+  }, [existingId]);
 
+  // Local-draft persistence so users don't lose answers on refresh.
   useEffect(() => {
     if (submitted) return;
     localStorage.setItem(
