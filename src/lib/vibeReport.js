@@ -8,9 +8,10 @@ const POSITIVE = [
   "energized", "clear", "momentum", "crushed", "celebrate", "good", "fun",
 ];
 const NEGATIVE = [
-  "stuck", "blocked", "frustrated", "tired", "drained", "ambiguous",
+  "stuck", "blocked", "frustrated", "tired", "drained", "draining", "ambiguous",
   "unclear", "stress", "stressed", "burnout", "behind", "miss", "risk",
-  "concern", "concerned", "slow", "fatigue", "overwhelmed",
+  "concern", "concerned", "slow", "fatigue", "overwhelmed", "flaky",
+  "pressure", "backing up", "backed up", "chasing", "debt",
 ];
 
 const THEME_WORDS = {
@@ -68,7 +69,13 @@ export function buildVibeReport(checkIns, users, { sinceDays = 30 } = {}) {
     const all = [c.answers?.win, c.answers?.challenge, c.answers?.growth, c.openMic]
       .filter(Boolean)
       .join(" \n ");
-    textScore += score(all);
+    // Tone deliberately excludes the challenge answer: that prompt asks for
+    // friction, so scoring it would skew every report negative. Challenges
+    // feed the blockers list below instead.
+    const tone = [c.answers?.win, c.answers?.growth, c.openMic]
+      .filter(Boolean)
+      .join(" \n ");
+    textScore += score(tone);
     for (const t of extractThemes(all)) {
       themeCounts[t] = (themeCounts[t] || 0) + 1;
     }

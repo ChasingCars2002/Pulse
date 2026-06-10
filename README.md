@@ -10,8 +10,11 @@ recognition, 1-on-1s, and OKRs, with AI-driven question rotation that kills surv
 
 - **Weekly Check-In** — a 3-question survey covering wins, challenges, and growth, plus a morale slider.
 - **High-Fives** — peer-to-peer recognition feed with @-mentions, values, and emoji reactions.
-- **1-on-1 Agendas** — shared workspace for managers and reports: talking points, notes, action items.
-- **OKR Tracking** — company objectives + a personal weekly-priorities list linked to them.
+- **1-on-1 Agendas** — shared workspace for managers and reports: talking points, notes, action
+  items, plus a "Check-in prep" card surfacing the other person's latest weekly check-in so
+  neither side walks in cold.
+- **OKR Tracking** — company objectives with editable progress + a personal weekly-priorities
+  list linked to them (priorities are keyed to the ISO week, so the list resets every Monday).
 
 **Pulse enhancements (what 15Five users complain about)**
 
@@ -55,8 +58,10 @@ cp .env.example .env
 npm run dev
 ```
 
-When Firebase env vars are present, Pulse uses Firestore for live updates on the High-Five feed
-and other collaborative surfaces, and signs users in anonymously for the demo. Replace
+When Firebase env vars are present, Pulse subscribes to Firestore snapshots for live updates on
+the High-Five feed and other collaborative surfaces, and signs users in anonymously for the demo.
+On first connect against an empty project, Pulse seeds the remote collections from the local demo
+data so the workspace starts alive. Replace
 `signInAnonymously` in [`src/lib/store.js`](src/lib/store.js) with your real auth flow for prod.
 
 ### Enabling Slack

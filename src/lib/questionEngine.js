@@ -112,24 +112,40 @@ export const QUESTION_POOL = {
   ],
 };
 
-export function isoWeekNumber(date = new Date()) {
+// ISO-8601 week number *and* week-year. The week-year can differ from the
+// calendar year at the boundaries (e.g. Dec 29 2025 is 2026-W01), so the
+// week key must come from the year of the week's Thursday, not the date's
+// own calendar year.
+export function isoWeekParts(date = new Date()) {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   const dayNum = d.getUTCDay() || 7;
   d.setUTCDate(d.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return { year: d.getUTCFullYear(), week };
+}
+
+export function isoWeekNumber(date = new Date()) {
+  return isoWeekParts(date).week;
 }
 
 export function currentWeekKey(date = new Date()) {
-  return `${date.getUTCFullYear()}-W${String(isoWeekNumber(date)).padStart(2, "0")}`;
+  const { year, week } = isoWeekParts(date);
+  return `${year}-W${String(week).padStart(2, "0")}`;
 }
 
 // Deterministic pick: same week => same prompt for everyone on the team.
+// Each axis is offset differently so the three prompts don't always appear
+// in the same combination, and the serial keeps advancing across year
+// boundaries instead of snapping back with the week number.
+const AXIS_OFFSETS = { win: 0, challenge: 2, growth: 4 };
+
 export function questionsForWeek(date = new Date()) {
-  const w = isoWeekNumber(date);
+  const { year, week } = isoWeekParts(date);
+  const serial = year * 53 + week;
   const pick = (axis) => {
     const pool = QUESTION_POOL[axis];
-    return pool[w % pool.length];
+    return pool[(serial + AXIS_OFFSETS[axis]) % pool.length];
   };
   return {
     weekKey: currentWeekKey(date),

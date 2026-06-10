@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useApp, userName } from "../context/AppContext.jsx";
 import { add, update, remove } from "../lib/store.js";
 import { fetchGithubIssues, fetchJiraIssues } from "../lib/integrations.js";
+import { currentWeekKey } from "../lib/questionEngine.js";
 import { Target, Plus, Trash2, Github, Link2 } from "lucide-react";
 
 const STATUS_LABEL = {
@@ -17,12 +18,17 @@ const STATUS_COLOR = {
 
 export default function OKRs() {
   const { currentUser, users, okrs, priorities } = useApp();
-  const mine = priorities.filter((p) => p.userId === currentUser?.id);
+  const week = currentWeekKey();
+  const mine = priorities.filter(
+    (p) => p.userId === currentUser?.id && p.week === week
+  );
 
   const [newTitle, setNewTitle] = useState("");
   const [newOkr, setNewOkr] = useState(okrs[0]?.id || "");
   const [imports, setImports] = useState([]);
   const [importsOpen, setImportsOpen] = useState(false);
+
+  const importedRefs = new Set(mine.map((p) => p.sourceRef).filter(Boolean));
 
   useEffect(() => {
     if (!importsOpen) return;
@@ -38,22 +44,23 @@ export default function OKRs() {
       userId: currentUser.id,
       title: newTitle.trim(),
       status: "todo",
-      okrId: newOkr,
+      okrId: newOkr || null,
       source: null,
-      week: "current",
+      week,
     });
     setNewTitle("");
   }
 
   async function importItem(item) {
+    if (importedRefs.has(item.ref)) return;
     await add("priorities", {
       userId: currentUser.id,
       title: item.title,
       status: "todo",
-      okrId: newOkr,
+      okrId: newOkr || null,
       source: item.source,
       sourceRef: item.ref,
-      week: "current",
+      week,
     });
   }
 
@@ -81,9 +88,18 @@ export default function OKRs() {
                 <span className="text-ink-500">Progress</span>
                 <span className="font-medium">{Math.round(o.progress * 100)}%</span>
               </div>
-              <div className="h-2 rounded-full bg-pulse-100 overflow-hidden mt-2">
-                <div className="h-full bg-pulse-500" style={{ width: `${o.progress * 100}%` }} />
-              </div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="5"
+                value={Math.round(o.progress * 100)}
+                onChange={(e) =>
+                  update("okrs", o.id, { progress: Number(e.target.value) / 100 })
+                }
+                className="w-full mt-2 accent-pulse-600"
+                aria-label={`Update progress for ${o.title}`}
+              />
             </div>
           ))}
         </div>
@@ -101,18 +117,26 @@ export default function OKRs() {
           <div className="rounded-lg border border-dashed border-pulse-300 p-4 mb-4 bg-pulse-50/50">
             <p className="muted mb-3">Click an item to pull it in as a priority.</p>
             <ul className="space-y-2">
-              {imports.map((i) => (
-                <li key={i.id}>
-                  <button
-                    onClick={() => importItem(i)}
-                    className="w-full text-left rounded-lg bg-white border border-ink-100 px-3 py-2 hover:border-pulse-400 flex items-center gap-3"
-                  >
-                    <span className="text-xs font-mono text-ink-500 shrink-0">{i.ref}</span>
-                    <span className="text-sm">{i.title}</span>
-                    <Link2 size={14} className="ml-auto text-ink-300" />
-                  </button>
-                </li>
-              ))}
+              {imports.map((i) => {
+                const imported = importedRefs.has(i.ref);
+                return (
+                  <li key={i.id}>
+                    <button
+                      onClick={() => importItem(i)}
+                      disabled={imported}
+                      className="w-full text-left rounded-lg bg-white border border-ink-100 px-3 py-2 hover:border-pulse-400 flex items-center gap-3 disabled:opacity-50 disabled:hover:border-ink-100"
+                    >
+                      <span className="text-xs font-mono text-ink-500 shrink-0">{i.ref}</span>
+                      <span className="text-sm">{i.title}</span>
+                      {imported ? (
+                        <span className="ml-auto chip shrink-0">Added</span>
+                      ) : (
+                        <Link2 size={14} className="ml-auto text-ink-300" />
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}
@@ -135,10 +159,8 @@ export default function OKRs() {
                       {p.source}:{p.sourceRef}
                     </span>
                   )}
-                  {p.okrId && (
-                    <span>
-                      → {okrs.find((o) => o.id === p.okrId)?.title?.slice(0, 40)}…
-                    </span>
+                  {p.okrId && okrs.some((o) => o.id === p.okrId) && (
+                    <span>→ {truncate(okrs.find((o) => o.id === p.okrId).title, 40)}</span>
                   )}
                 </div>
               </div>
@@ -170,9 +192,10 @@ export default function OKRs() {
             value={newOkr}
             onChange={(e) => setNewOkr(e.target.value)}
           >
+            <option value="">No objective</option>
             {okrs.map((o) => (
               <option key={o.id} value={o.id}>
-                {o.title.slice(0, 36)}…
+                {truncate(o.title, 36)}
               </option>
             ))}
           </select>
@@ -183,4 +206,8 @@ export default function OKRs() {
       </section>
     </div>
   );
+}
+
+function truncate(text, max) {
+  return text.length > max ? `${text.slice(0, max)}…` : text;
 }
